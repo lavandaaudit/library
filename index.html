@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBONARIUM | Цифрова Бібліотека</title>
+    <meta name="description"
+        content="IBONARIUM - велика онлайн бібліотека з відкритим API. Книги з космосу, історії, філософії та науки.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <canvas id="starsCanvas"></canvas>
+
+    <div class="app-container">
+        <header>
+            <div class="logo-container">
+                <h1 id="main-title">IBONARIUM</h1>
+                <p class="subtitle">Архіви Світової Думки</p>
+            </div>
+
+            <nav class="filters-container">
+                <div class="filters-scroll">
+                    <button class="filter-btn active" data-subject="all">Всі</button>
+                    <button class="filter-btn" data-subject="space">Космос</button>
+                    <button class="filter-btn" data-subject="history">Історія</button>
+                    <button class="filter-btn" data-subject="ballet">Історія балету</button>
+                    <button class="filter-btn" data-subject="middle ages">Середньовіччя</button>
+                    <button class="filter-btn" data-subject="classics">Стара література</button>
+                    <button class="filter-btn" data-subject="philosophy">Філософія</button>
+                    <button class="filter-btn" data-subject="music">Музика</button>
+                    <button class="filter-btn" data-subject="geometry">Геометрія</button>
+                    <button class="filter-btn" data-subject="mathematics">Математика</button>
+                    <button class="filter-btn" data-subject="literature">Література</button>
+                    <button class="filter-btn" data-subject="physics">Фізика</button>
+                    <button class="filter-btn" data-subject="quantum physics">Квантова фізика</button>
+                    <button class="filter-btn" data-subject="poetry">Поезія</button>
+                </div>
+            </nav>
+
+            <div class="search-bar">
+                <input type="text" id="bookSearch" placeholder="Пошук книги або автора...">
+                <button id="searchBtn">Знайти</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="loader" class="hidden">
+                <div class="spinner"></div>
+                <p>Гортаємо сторінки всесвіту...</p>
+            </div>
+
+            <div id="booksGrid" class="books-grid">
+                <!-- Books will be injected here -->
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 IBONARIUM Library. Powered by Google Books API.</p>
+        </footer>
+    </div>
+
+    <!-- Modal for Book Details -->
+    <div id="bookModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div id="modalBody" class="modal-body">
+                <!-- Detail content -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
