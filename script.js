@@ -55,8 +55,12 @@ const modal = document.getElementById('bookModal');
 const modalBody = document.getElementById('modalBody');
 const closeModal = document.querySelector('.close-modal');
 
+// Mappings for specific queries
 const subjectMapping = {
     'all': 'subject:literature',
+    'trending': 'sort=editions&subject=literature', // Proxy for popular
+    'science': 'subject:science',
+    'publicistics': 'subject:journalism',
     'space': 'subject:astronomy',
     'history': 'subject:history',
     'ballet': 'ballet history',
@@ -64,24 +68,94 @@ const subjectMapping = {
     'classics': 'subject:classic_literature',
     'philosophy': 'subject:philosophy',
     'music': 'subject:music',
+    // Music Expansion
+    'opera': 'subject:opera',
+    'classical_music': 'subject:classical_music',
+    'modern_music': 'subject:modern_music', // or contemporary
+    'jazz': 'subject:jazz',
+    'rock': 'subject:rock_music',
+    'folk': 'subject:folk_music',
+    'music_theory': 'subject:music_theory',
+
     'geometry': 'subject:geometry',
     'mathematics': 'subject:mathematics',
     'literature': 'subject:fiction',
     'physics': 'subject:physics',
     'quantum physics': 'quantum physics',
-    'poetry': 'subject:poetry'
+    'poetry': 'subject:poetry',
+
+    // New Categories
+    'astronomy': 'subject:astronomy',
+    'medicine': 'subject:medicine',
+    'biology': 'subject:biology',
+    // ukrainian removed
+    'atlases': 'subject:historical_atlases',
+    'greece': 'subject:ancient_greece',
+    'rome': 'subject:ancient_rome',
+    'technology': 'subject:technology',
+    'comms': 'subject:telecommunication',
+    'ornithology': 'subject:ornithology',
+    // transhumanism removed
+    'scifi': 'subject:science_fiction',
+    'politics': 'subject:politics',
+    'law': 'subject:law',
+    'economics': 'subject:economics',
+
+    // User Requested & Expanded
+    'recreation': 'subject:recreation',
+    'cooking': 'subject:cooking',
+    'maps': 'subject:maps',
+    'art': 'subject:art',
+    'museums': 'subject:museums',
+    'german_philosophy': 'subject:german_philosophy',
+    // Replaced Philosophers
+    'astrophysics': 'subject:astrophysics',
+    'genetics': 'subject:genetics',
+
+    // Additional
+    'architecture': 'subject:architecture',
+    'psychology': 'subject:psychology',
+    'mythology': 'subject:mythology',
+    'egypt': 'subject:ancient_egypt',
+    'linguistics': 'subject:linguistics',
+    'botany': 'subject:botany',
+    'cinema': 'subject:cinema',
+    'chess': 'subject:chess',
+    'design': 'subject:design',
+    'ai': 'subject:artificial_intelligence',
+    'oceanography': 'subject:oceanography',
+    'gardening': 'subject:gardening'
 };
 
-async function fetchBooks(query, isSearch = false) {
+async function fetchBooks(key, isSearch = false) {
     loader.classList.remove('hidden');
     booksGrid.innerHTML = '';
 
     // Open Library Search API
     const baseUrl = 'https://openlibrary.org/search.json';
-    const finalQuery = isSearch ? query : subjectMapping[query] || 'subject:literature';
-    const apiUrl = `${baseUrl}?q=${encodeURIComponent(finalQuery)}&limit=24&fields=key,title,author_name,cover_i,first_publish_year,subject,ia`;
+    let finalQuery;
+    let extraParams = '';
+
+    if (isSearch) {
+        finalQuery = `q=${encodeURIComponent(key)}`;
+    } else {
+        // Build query from mapping
+        const val = subjectMapping[key];
+        if (key === 'trending') {
+            // Trending uses a broader search with sort
+            finalQuery = `q=subject:fiction&sort=editions`;
+        } else if (val) {
+            finalQuery = `q=${encodeURIComponent(val)}`;
+        } else {
+            finalQuery = `q=subject:literature`;
+        }
+    }
+
+    // Attempt to get more fields and relevant sort
+    const apiUrl = `${baseUrl}?${finalQuery}&limit=24&fields=key,title,author_name,cover_i,first_publish_year,subject,ia,language`;
 
     try {
+        console.log("Fetching:", apiUrl);
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error('Network error');
         const data = await response.json();
@@ -89,6 +163,8 @@ async function fetchBooks(query, isSearch = false) {
         loader.classList.add('hidden');
 
         if (data.docs && data.docs.length > 0) {
+            // Filter out results that might not have covers to keep it pretty
+            // or just render what we have. Let's render everything but placeholder if missing.
             displayBooks(data.docs);
         } else {
             showNoResults();
@@ -96,27 +172,31 @@ async function fetchBooks(query, isSearch = false) {
     } catch (error) {
         console.error('Fetch error:', error);
         loader.classList.add('hidden');
-        booksGrid.innerHTML = `<p class="api-notice">Помилка підключення до архіву. Спробуйте ще раз.</p>`;
+        booksGrid.innerHTML = `<p class="api-notice">Помилка підключення до архіву. Спробуйте ще раз пізніше.</p>`;
     }
 }
 
 function displayBooks(books) {
     books.forEach(book => {
-        // Only show books that have a cover for better aesthetics
+        // Optional: Filter strict items without covers if desired, but let's allow placeholder for rare items logic
+        // For aesthetics, let's skip items with absolutely no cover ID if user wants "visual core"
         if (!book.cover_i) return;
 
         const card = document.createElement('div');
         card.className = 'book-card';
 
         const coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
-        const authors = book.author_name ? book.author_name.join(', ') : 'Невідомий автор';
+        const authors = book.author_name ? book.author_name.slice(0, 2).join(', ') : 'Невідомий автор';
         const title = book.title || 'Без назви';
 
         card.innerHTML = `
-            <img src="${coverUrl}" alt="${title}" class="book-cover" loading="lazy">
+            <div class="card-image-wrap">
+                 <img src="${coverUrl}" alt="${title}" class="book-cover" loading="lazy">
+            </div>
             <div class="book-info">
                 <h3 class="book-title">${title}</h3>
                 <p class="book-author">${authors}</p>
+                <div class="hover-info">ЧИТАТИ</div>
             </div>
         `;
 
@@ -129,11 +209,13 @@ function showBookDetails(book) {
     const coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
     const authors = book.author_name ? book.author_name.join(', ') : 'Невідомий автор';
     const year = book.first_publish_year || 'Невідомо';
+    // Clean subjects
     const subjects = book.subject ? book.subject.slice(0, 5).join(', ') : 'Не вказано';
 
-    // Archive.org / Open Library Link
+    // Construct links
     const bookLink = `https://openlibrary.org${book.key}`;
-    const readLink = book.ia ? `https://archive.org/details/${book.ia[0]}` : bookLink;
+    // Use Archive.org reader link if 'ia' availability exists
+    const readLink = book.ia ? `https://archive.org/details/${book.ia[0]}/mode/2up` : bookLink;
 
     modalBody.innerHTML = `
         <img src="${coverUrl}" alt="${book.title}" class="modal-cover">
@@ -141,16 +223,16 @@ function showBookDetails(book) {
             <h2>${book.title}</h2>
             <div class="meta">
                 <p><strong>Автор:</strong> ${authors}</p>
-                <p><strong>Перше видання:</strong> ${year}</p>
+                <p><strong>Рік видання:</strong> ${year}</p>
                 <p><strong>Тематика:</strong> ${subjects}</p>
             </div>
             <div class="modal-description">
-                Ця книга є частиною світового відкритого архіву. 
-                Ви можете переглянути повну версію, цифрову копію або взяти її в оренду через Open Library.
+                <p>Ця книга доступна в цифровому архіві IBONARIUM через мережу Open Library/Archive.org.</p>
+                <p>Ви можете безкоштовно переглянути її або взяти в оренду, якщо це дозволено ліцензією.</p>
             </div>
-            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                <a href="${readLink}" target="_blank" class="read-btn">ВІДКРИТИ АРХІВ</a>
-                <a href="${bookLink}" target="_blank" class="read-btn" style="background: transparent; border: 1px solid white; color: white;">ДЕТАЛІ OL</a>
+            <div class="action-buttons">
+                <a href="${readLink}" target="_blank" class="read-btn primary-btn">ЧИТАТИ ОНЛАЙН</a>
+                <a href="${bookLink}" target="_blank" class="read-btn secondary-btn">КАРТКА OPEN LIBRARY</a>
             </div>
         </div>
     `;
@@ -190,11 +272,13 @@ searchInput.addEventListener('keypress', (e) => {
 function showNoResults() {
     booksGrid.innerHTML = `
         <div class="no-results">
-            <p>В архіві нічого не знайдено за цим запитом.</p>
+            <p>Нічого не знайдено за цим запитом.</p>
+            <p style="font-size: 0.8em; opacity: 0.6;">Спробуйте змінити ключові слова.</p>
         </div>
     `;
 }
 
+// Modal closing
 closeModal.addEventListener('click', () => {
     modal.classList.remove('active');
     modal.classList.add('hidden');
@@ -209,5 +293,5 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// Initial load
+// Initial load - use "All" (literature) or "Trending"
 fetchBooks('all');
