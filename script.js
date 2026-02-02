@@ -1,51 +1,38 @@
-// --- Floating Stars Background ---
+// --- Stars Background ---
 const canvas = document.getElementById('starsCanvas');
 const ctx = canvas.getContext('2d');
-
 let stars = [];
-const starCount = 200;
-
 function initStars() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     stars = [];
-    for (let i = 0; i < starCount; i++) {
+    for (let i = 0; i < 200; i++) {
         stars.push({
             x: Math.random() * canvas.width,
             y: Math.random() * canvas.height,
             size: Math.random() * 2 + 0.5,
             speed: Math.random() * 0.15 + 0.05,
-            opacity: Math.random(),
-            pulse: Math.random() * 0.05
+            opacity: Math.random()
         });
     }
 }
-
 function animateStars() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     stars.forEach(star => {
-        star.opacity += Math.sin(Date.now() * 0.001 + star.x) * 0.005;
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.1, Math.min(1, star.opacity))})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
-
         star.y += star.speed;
-        if (star.y > canvas.height) {
-            star.y = 0;
-            star.x = Math.random() * canvas.width;
-        }
+        if (star.y > canvas.height) star.y = 0;
     });
-
     requestAnimationFrame(animateStars);
 }
-
 window.addEventListener('resize', initStars);
 initStars();
 animateStars();
 
-// --- Library Logic (Open Library / Archive.org) ---
+// --- Library Logic ---
 const booksGrid = document.getElementById('booksGrid');
 const loader = document.getElementById('loader');
 const searchInput = document.getElementById('bookSearch');
@@ -71,7 +58,7 @@ const subjectMapping = {
     // Music Expansion
     'opera': 'subject:opera',
     'classical_music': 'subject:classical_music',
-    'modern_music': 'subject:modern_music', // or contemporary
+    'modern_music': 'subject:modern_music',
     'jazz': 'subject:jazz',
     'rock': 'subject:rock_music',
     'folk': 'subject:folk_music',
@@ -88,14 +75,12 @@ const subjectMapping = {
     'astronomy': 'subject:astronomy',
     'medicine': 'subject:medicine',
     'biology': 'subject:biology',
-    // ukrainian removed
     'atlases': 'subject:historical_atlases',
     'greece': 'subject:ancient_greece',
     'rome': 'subject:ancient_rome',
     'technology': 'subject:technology',
     'comms': 'subject:telecommunication',
     'ornithology': 'subject:ornithology',
-    // transhumanism removed
     'scifi': 'subject:science_fiction',
     'politics': 'subject:politics',
     'law': 'subject:law',
@@ -108,7 +93,6 @@ const subjectMapping = {
     'art': 'subject:art',
     'museums': 'subject:museums',
     'german_philosophy': 'subject:german_philosophy',
-    // Replaced Philosophers with Science
     'astrophysics': 'subject:astrophysics',
     'genetics': 'subject:genetics',
 
@@ -131,18 +115,12 @@ async function fetchBooks(key, isSearch = false) {
     loader.classList.remove('hidden');
     booksGrid.innerHTML = '';
 
-    // Open Library Search API
-    const baseUrl = 'https://openlibrary.org/search.json';
     let finalQuery;
-    let extraParams = '';
-
     if (isSearch) {
         finalQuery = `q=${encodeURIComponent(key)}`;
     } else {
-        // Build query from mapping
         const val = subjectMapping[key];
         if (key === 'trending') {
-            // Trending uses a broader search with sort
             finalQuery = `q=subject:fiction&sort=editions`;
         } else if (val) {
             finalQuery = `q=${encodeURIComponent(val)}`;
@@ -151,147 +129,88 @@ async function fetchBooks(key, isSearch = false) {
         }
     }
 
-    // Attempt to get more fields and relevant sort
-    const apiUrl = `${baseUrl}?${finalQuery}&limit=24&fields=key,title,author_name,cover_i,first_publish_year,subject,ia,language`;
+    const url = `https://openlibrary.org/search.json?${finalQuery}&limit=24&fields=key,title,author_name,cover_i,first_publish_year,subject,ia`;
 
     try {
-        console.log("Fetching:", apiUrl);
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error('Network error');
-        const data = await response.json();
-
+        const res = await fetch(url);
+        const data = await res.json();
         loader.classList.add('hidden');
-
-        if (data.docs && data.docs.length > 0) {
-            // Filter out results that might not have covers to keep it pretty
-            // or just render what we have. Let's render everything but placeholder if missing.
-            displayBooks(data.docs);
-        } else {
-            showNoResults();
+        if (data.docs) {
+            data.docs.forEach(book => {
+                if (!book.cover_i) return;
+                const card = document.createElement('div');
+                card.className = 'book-card';
+                card.innerHTML = `
+                    <img src="https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg" class="book-cover">
+                    <div class="book-info">
+                        <h3 class="book-title">${book.title}</h3>
+                        <p class="book-author">${book.author_name ? book.author_name[0] : 'Автор невідомий'}</p>
+                    </div>
+                `;
+                card.onclick = () => showBookDetails(book);
+                booksGrid.appendChild(card);
+            });
         }
-    } catch (error) {
-        console.error('Fetch error:', error);
-        loader.classList.add('hidden');
-        booksGrid.innerHTML = `<p class="api-notice">Помилка підключення до архіву. Спробуйте ще раз пізніше.</p>`;
-    }
+    } catch (e) { loader.classList.add('hidden'); }
 }
 
-function displayBooks(books) {
-    books.forEach(book => {
-        // Optional: Filter strict items without covers if desired, but let's allow placeholder for rare items logic
-        // For aesthetics, let's skip items with absolutely no cover ID if user wants "visual core"
-        if (!book.cover_i) return;
-
-        const card = document.createElement('div');
-        card.className = 'book-card';
-
-        const coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
-        const authors = book.author_name ? book.author_name.slice(0, 2).join(', ') : 'Невідомий автор';
-        const title = book.title || 'Без назви';
-
-        card.innerHTML = `
-            <div class="card-image-wrap">
-                 <img src="${coverUrl}" alt="${title}" class="book-cover" loading="lazy">
-            </div>
-            <div class="book-info">
-                <h3 class="book-title">${title}</h3>
-                <p class="book-author">${authors}</p>
-                <div class="hover-info">ЧИТАТИ</div>
-            </div>
-        `;
-
-        card.addEventListener('click', () => showBookDetails(book));
-        booksGrid.appendChild(card);
-    });
+// Функція пошуку в Вікіпедії українською
+async function getWikiDescription(title) {
+    try {
+        const url = `https://uk.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            return data.extract_html || `<p>${data.extract}</p>`;
+        }
+    } catch (e) { console.log("Wiki error", e); }
+    return null;
 }
 
-function showBookDetails(book) {
-    const coverUrl = `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`;
+async function showBookDetails(book) {
     const authors = book.author_name ? book.author_name.join(', ') : 'Невідомий автор';
-    const year = book.first_publish_year || 'Невідомо';
-    // Clean subjects
-    const subjects = book.subject ? book.subject.slice(0, 5).join(', ') : 'Не вказано';
+    const readLink = book.ia ? `https://archive.org/details/${book.ia[0]}/mode/2up` : `https://openlibrary.org${book.key}`;
 
-    // Construct links
-    const bookLink = `https://openlibrary.org${book.key}`;
-    // Use Archive.org reader link if 'ia' availability exists
-    const readLink = book.ia ? `https://archive.org/details/${book.ia[0]}/mode/2up` : bookLink;
-
+    // Показуємо базове вікно
     modalBody.innerHTML = `
-        <img src="${coverUrl}" alt="${book.title}" class="modal-cover">
+        <img src="https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg" class="modal-cover">
         <div class="modal-details">
             <h2>${book.title}</h2>
-            <div class="meta">
-                <p><strong>Автор:</strong> ${authors}</p>
-                <p><strong>Рік видання:</strong> ${year}</p>
-                <p><strong>Тематика:</strong> ${subjects}</p>
-            </div>
-            <div class="modal-description">
-                <p>Ця книга доступна в цифровому архіві IBONARIUM через мережу Open Library/Archive.org.</p>
-                <p>Ви можете безкоштовно переглянути її або взяти в оренду, якщо це дозволено ліцензією.</p>
-            </div>
+            <p class="meta"><strong>Автор:</strong> ${authors} | <strong>Рік:</strong> ${book.first_publish_year || '---'}</p>
+            <div id="wikiDesc" class="modal-description">Завантажуємо опис з Вікіпедії...</div>
             <div class="action-buttons">
-                <a href="${readLink}" target="_blank" class="read-btn primary-btn">ЧИТАТИ ОНЛАЙН</a>
-                <a href="${bookLink}" target="_blank" class="read-btn secondary-btn">КАРТКА OPEN LIBRARY</a>
+                <a href="${readLink}" target="_blank" class="read-btn">ЧИТАТИ ОНЛАЙН</a>
             </div>
         </div>
     `;
 
-    modal.classList.remove('hidden');
     modal.classList.add('active');
+    modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+
+    // Завантажуємо опис
+    const desc = await getWikiDescription(book.title);
+    const descDiv = document.getElementById('wikiDesc');
+    if (desc) {
+        descDiv.innerHTML = desc;
+    } else {
+        descDiv.innerHTML = `
+            <p>Ця книга доступна в цифровому архіві IBONARIUM через мережу Open Library/Archive.org.</p>
+            <p>Ви можете безкоштовно переглянути її або взяти в оренду в оригінальному форматі.</p>
+        `;
+    }
 }
 
-// Event Listeners
-filterBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        fetchBooks(btn.dataset.subject);
-    });
+// Listeners
+filterBtns.forEach(btn => btn.onclick = () => {
+    filterBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    fetchBooks(btn.dataset.subject === 'all' ? 'literature' : btn.dataset.subject);
 });
 
-searchBtn.addEventListener('click', () => {
-    const query = searchInput.value.trim();
-    if (query) {
-        fetchBooks(query, true);
-        filterBtns.forEach(b => b.classList.remove('active'));
-    }
-});
+searchBtn.onclick = () => fetchBooks(searchInput.value, true);
+searchInput.onkeypress = (e) => e.key === 'Enter' && fetchBooks(searchInput.value, true);
+closeModal.onclick = () => { modal.classList.remove('active'); document.body.style.overflow = 'auto'; };
+window.onclick = (e) => { if (e.target === modal) closeModal.onclick(); };
 
-searchInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        const query = searchInput.value.trim();
-        if (query) {
-            fetchBooks(query, true);
-            filterBtns.forEach(b => b.classList.remove('active'));
-        }
-    }
-});
-
-function showNoResults() {
-    booksGrid.innerHTML = `
-        <div class="no-results">
-            <p>Нічого не знайдено за цим запитом.</p>
-            <p style="font-size: 0.8em; opacity: 0.6;">Спробуйте змінити ключові слова.</p>
-        </div>
-    `;
-}
-
-// Modal closing
-closeModal.addEventListener('click', () => {
-    modal.classList.remove('active');
-    modal.classList.add('hidden');
-    document.body.style.overflow = 'auto';
-});
-
-window.addEventListener('click', (e) => {
-    if (e.target === modal) {
-        modal.classList.remove('active');
-        modal.classList.add('hidden');
-        document.body.style.overflow = 'auto';
-    }
-});
-
-// Initial load - use "All" (literature) or "Trending"
-fetchBooks('all');
+fetchBooks('literature');
