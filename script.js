@@ -108,7 +108,7 @@ const subjectMapping = {
     'art': 'subject:art',
     'museums': 'subject:museums',
     'german_philosophy': 'subject:german_philosophy',
-    // Replaced Philosophers
+    // Replaced Philosophers with Science
     'astrophysics': 'subject:astrophysics',
     'genetics': 'subject:genetics',
 
